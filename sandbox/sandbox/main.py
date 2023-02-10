@@ -23,15 +23,21 @@ while not rightLocked or not leftLocked:
     print("LEFT: " + str(left.value()) + " RIGHT: " + str(right.value()))
 
     if left.value() > 100 and not leftLocked:
-        lm.on(-10)
+        if rightLocked:
+            lm.on(-10)
+        else :
+            lm.on(-20)
     else:
         leftLocked = True
-        lm.on(2)
+        lm.on(-4)
     if right.value() > 100 and not rightLocked:
-        rm.on(-10)
+        if leftLocked:
+            rm.on(-10)
+        else :
+            rm.on(-20)
     else:
         rightLocked = True
-        rm.on(2)
+        rm.on(-4)
 
 
 leftLocked = False
