@@ -1,63 +1,62 @@
 #!/usr/bin/env python3
+from time import sleep
+from smbus import SMBus
 
-from ev3dev2.sensor import Sensor
-from ev3dev2.sensor import INPUT_2, INPUT_3
-from ev3dev2.motor import OUTPUT_B, OUTPUT_C
-from ev3dev2.sound import Sound
-from ev3dev2.motor import LargeMotor
-
-
-left = Sensor(INPUT_2)
-right = Sensor(INPUT_3)
-
-left.mode = "RAW"
-right.mode = "RAW"
-
-lm = LargeMotor(OUTPUT_B)
-rm = LargeMotor(OUTPUT_C)
-
-leftLocked = False
-rightLocked = False
-while not rightLocked or not leftLocked:
-
-    print("LEFT: " + str(left.value()) + " RIGHT: " + str(right.value()))
-
-    if left.value() > 100 and not leftLocked:
-        if rightLocked:
-            lm.on(-10)
-        else :
-            lm.on(-20)
-    else:
-        leftLocked = True
-        lm.on(-4)
-    if right.value() > 100 and not rightLocked:
-        if leftLocked:
-            rm.on(-10)
-        else :
-            rm.on(-20)
-    else:
-        rightLocked = True
-        rm.on(-4)
+from ev3dev2.display import Display
+from ev3dev2.sensor import INPUT_1, INPUT_4
+from ev3dev2.sensor.lego import TouchSensor
+from ev3dev2.port import LegoPort
 
 
-leftLocked = False
-rightLocked = False
-while not rightLocked or not leftLocked:
+# EV3 Display
+lcd = Display()
 
-    print("LEFT: " + str(left.value()) + " RIGHT: " + str(right.value()))
+# Set LEGO port for Pixy2 on input port 1
+in1 = LegoPort(INPUT_1)
+in1.mode = 'other-i2c'
+# Short wait for the port to get ready
+sleep(0.5)
 
-    if left.value() < 200 and not leftLocked:
-        lm.on(-5)
-    else:
-        leftLocked = True
-        lm.off()
-    if right.value() < 200 and not rightLocked:
-        rm.on(-5)
-    else:
-        rightLocked = True
-        rm.off()
+# Settings for I2C (SMBus(3) for INPUT_1)
+bus = SMBus(3)
+# Make sure the same address is set in Pixy2
+address = 0x54
 
-rm.off(brake=True)
-lm.off(brake=True)
+# Signatures we're interested in (SIG1)
+sigs = 1
 
+# Data for requesting block
+data = [174, 193, 32, 2, sigs, 1]
 
+# Read and display data until TouchSensor is pressed
+while True:
+    # Clear display
+    lcd.clear()
+    # Request block
+    bus.write_i2c_block_data(address, 0, data)
+    # Read block
+    block = bus.read_i2c_block_data(address, 0, 20)
+    # Extract data
+    sig = block[7]*256 + block[6]
+    x = block[9]*256 + block[8]
+    y = block[11]*256 + block[10]
+    w = block[13]*256 + block[12]
+    h = block[15]*256 + block[14]
+    # Scale to resolution of EV3 display:
+    # Resolution Pixy2 while color tracking; (316x208)
+    # Resolution EV3 display: (178x128)
+    x *= 0.6
+    y *= 0.6
+    w *= 0.6
+    h *= 0.6
+    # Calculate rectangle to draw on display
+    dx = int(w/2)
+    dy = int(h/2)
+    xa = x - dx
+    ya = y + dy
+    xb = x + dx
+    yb = y - dy
+    # Draw rectangle on display
+    lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
+    # Update display to how rectangle
+    lcd.update()
